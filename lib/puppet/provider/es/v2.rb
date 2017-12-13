@@ -4,6 +4,11 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
   confine feature: :aws
   mk_resource_methods
 
+  def initialize(value={})
+    super(value)
+    @property_flush = {}
+  end
+
   def self.prefetch(resources)
     instances.each do |prov|
       if resource = resources[prov.name] # rubocop:disable Lint/AssignmentInCondition
