@@ -39,24 +39,45 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
     config
   end
 
-# TODO: config_with_dedicated_master
-#      elasticsearch_cluster_config: {
-#        dedicated_master_type: "m3.medium.elasticsearch",
-#        dedicated_master_count: 1,
+  def config_with_dedicated_master(config)
+    if resource[:dedicated_master_enabled] == true
+      config[:dedicated_master] = {
+        elasticsearch_cluster_config: {
+          dedicated_master_type: resource[:dedicated_master_type],
+          dedicated_master_count: resource[:dedicated_master_count],
+        }
+      }
+    end
+    config
+  end
 
-# TODO: config_with_ebs_options
-#      ebs_options: {
-#        ebs_enabled: false,
-#        volume_type: "standard",
-#        volume_size: 1,
-#        iops: 1,
-#      },
+  def config_with_ebs_options(config)
+    if resource[:ebs_enabled] == true
+      config[:ebs_options] = {
+        ebs_enabled: resource[:ebs_enabled],
+        volume_type: resource[:volume_type],
+        volume_size: resource[:volume_size],
+      }
+    end
+    unless resource[:iops].nil?
+      config[:ebs_options].first[:iops] = resource[:iops]
+    end
+    config
+  end
 
-# TODO: config_with_encryption_at_rest_options
-#      encryption_at_rest_options: {
-#        enabled: false,
-#        kms_key_id: "KmsKeyId",
-#      },
+  def config_with_encryption_at_rest_options(config)
+    unless resource[:kms_key_id].nil?
+      config[:encryption_at_rest_options] = {
+        enabled: true,
+        kms_key_id: resource[:kms_key_id],
+      }
+    else
+      config[:encryption_at_rest_options] = {
+        enabled: false,
+      }
+    end
+    config
+  end
 
   def exists?
     Puppet.debug("Checking if Elasticsearch Service Domain #{name} is present in region #{target_region}")
@@ -65,7 +86,12 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
 
   def create
     Puppet.info("Creating new Elasticsearch Service Domain #{name} in region #{target_region}")
-    es = es_client(target_region)
+
+    subnet_ids = resource[:subnet_ids]
+    subnet_ids = [subnet_ids] unless subnet_ids.is_a?(Array)
+
+    security_group_ids = resource[:security_group_ids]
+    security_group_ids = [security_group_ids] unless security_group_ids.is_a?(Array)
 
     config = {
       domain_name: name,
@@ -81,13 +107,17 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
         automated_snapshot_start_hour: resource[:automated_snapshot_start_hour],
       },
       vpc_options: {
-        subnet_ids: resource[:subnet_ids],
-        security_group_ids: resource[:security_group_ids],
+        subnet_ids: subnet_ids,
+        security_group_ids: security_group_ids,
       },
       advanced_options: resource[:advanced_options],
     }
+    config = config_with_dedicated_master(config)
+    config = config_with_ebs_options(config)
+    config = config_with_encryption_at_rest_options(config)
 
-    es.create_elasticsearch_domain(config)
+    Puppet.debug(config)
+    es_client(target_region).create_elasticsearch_domain(config)
     @property_hash[:ensure] = :present
   end
 
