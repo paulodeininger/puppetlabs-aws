@@ -5,11 +5,11 @@ Puppet::Type.newtype(:es) do
 
   ensurable
 
-  newparam(:name_domain, namevar: true) do
+  newparam(:name, namevar: true) do
     desc 'The name of the Elasticsearch domain that you are creating.'
     validate do |value|
-      fail 'domain_name should be a String' unless value.is_a?(String)
-      fail 'Elasticsearch Service must have a domain_name' if value == ''
+      fail 'name should be a String' unless value.is_a?(String)
+      fail 'Elasticsearch Service must have a name for domain_name' if value == ''
     end
   end
 
