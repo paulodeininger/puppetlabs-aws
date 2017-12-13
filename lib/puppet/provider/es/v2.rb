@@ -54,7 +54,7 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
     es = es_client(target_region)
 
     config = {
-      domain_name: resource[:domain_name],
+      domain_name: domain_name,
       elasticsearch_version: resource[:elasticsearch_version],
       elasticsearch_cluster_config: {
         instance_type: resource[:instance_type],
@@ -70,15 +70,25 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
         subnet_ids: resource[:subnet_ids],
         security_group_ids: resource[:security_group_ids],
       },
-      advanced_options: resource[:advanced_options]
+      advanced_options: resource[:advanced_options],
     }
 
     es.create_elasticsearch_domain(config)
     @property_hash[:ensure] = :present
   end
 
-  # TODO
   def destroy
+    Puppet.info("Deleting Domain #{domain_name} in region #{resource[:region]}")
+    es = es_client(target_region)
+    response = es.delete_elasticsearch_domain({
+      domain_name: domain_name,
+    })
+
+    @property_hash[:ensure] = :absent
+    if response.error
+      fail("Failed to delete Elasticsearch Domain: #{response.error}") if response.error
+    end
+    response.error
   end
 
   # TODO
