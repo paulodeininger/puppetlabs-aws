@@ -209,6 +209,14 @@ This could be because some other process is modifying AWS at the same time."""
         ::Aws::RDS::Client.new(client_config(region))
       end
 
+      def es_client(region = default_region)
+        self.class.es_client(region)
+      end
+
+      def self.es_client(region = default_region)
+        ::Aws::ElasticsearchService::Client.new(client_config(region))
+      end
+
       def sqs_client(region = default_region)
         self.class.sqs_client(region)
       end
