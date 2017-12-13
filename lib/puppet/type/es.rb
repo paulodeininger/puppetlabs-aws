@@ -21,6 +21,18 @@ Puppet::Type.newtype(:es) do
   newproperty(:instance_type)
   newproperty(:instance_count)
   newproperty(:dedicated_master_enabled)
+
+  newproperty(:dedicated_master_type)
+  newproperty(:dedicated_master_count)
+
+  newproperty(:ebs_enabled)
+  newproperty(:volume_type)
+  newproperty(:volume_size)
+  newproperty(:iops)
+
+  newproperty(:encryption_at_rest_options)
+  newproperty(:kms_key_id)
+
   newproperty(:zone_awareness_enabled)
   newproperty(:automated_snapshot_start_hour)
   newproperty(:subnet_ids)
@@ -46,6 +58,28 @@ Puppet::Type.newtype(:es) do
       one = JSON.parse(is)
       two = JSON.parse(should)
       provider.class.normalize_hash(one) == provider.class.normalize_hash(two)
+    end
+  end
+
+
+  newproperty(:arn) do
+    desc 'The arn.'
+    validate do |value|
+      fail 'arn is read-only'
+    end
+  end
+
+  newproperty(:endpoint) do
+    desc 'The connection endpoint for the elasticsearch.'
+    validate do |value|
+      fail 'endpoint is read-only'
+    end
+  end
+
+  newproperty(:vpc_security_groups, :array_matching => :all) do
+    desc 'An array of security group names (or IDs) within the VPC to assign to the instance.'
+    munge do |value|
+      provider.vpc_security_group_munge(value)
     end
   end
 
