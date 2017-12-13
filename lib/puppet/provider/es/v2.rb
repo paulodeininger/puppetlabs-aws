@@ -9,8 +9,16 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
     @property_flush = {}
   end
 
-  # TODO
   def self.instances
+    regions.collect do |region|
+      instances []
+      es = es_client(region)
+      es.list_domain_names().each() do |instance|
+        hash = instance_to_hash(region, domain_name)
+        instances << new(hash) if hash[:domain_name]
+      end
+      instances
+    end.flatten
   end
 
   def self.prefetch(resources)
@@ -21,8 +29,12 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
     end
   end
 
-  # TODO
-  def self.instance_to_hash()
+  def self.instance_to_hash(region, domain_name)
+    config = {
+      domain_name: domain_name,
+      region: region,
+      ensure: :present,
+    }
   end
 
 # TODO: config_with_dedicated_master
