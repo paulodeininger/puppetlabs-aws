@@ -13,4 +13,11 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
   end
 
 
+  def exists?
+    Puppet.debug("Checking if Elasticsearch Service Domain #{domain_name} is present in region #{target_region}")
+    @property_hash[:ensure] == :present
+  end
+
+
+
 end
