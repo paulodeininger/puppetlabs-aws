@@ -9,12 +9,20 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
     @property_flush = {}
   end
 
+  # TODO
+  def self.instances
+  end
+
   def self.prefetch(resources)
     instances.each do |prov|
       if resource = resources[prov.name] # rubocop:disable Lint/AssignmentInCondition
         resource.provider = prov if resource[:region] == prov.region
       end
     end
+  end
+
+  # TODO
+  def self.instance_to_hash()
   end
 
 # TODO: config_with_dedicated_master
@@ -36,7 +44,10 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
 #        kms_key_id: "KmsKeyId",
 #      },
 
-
+  def exists?
+    Puppet.debug("Checking if Elasticsearch Service Domain #{domain_name} is present in region #{target_region}")
+    @property_hash[:ensure] == :present
+  end
 
   def create
     Puppet.info("Creating new Elasticsearch Service Domain #{domain_name} in region #{target_region}")
@@ -66,11 +77,12 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
     @property_hash[:ensure] = :present
   end
 
-  def exists?
-    Puppet.debug("Checking if Elasticsearch Service Domain #{domain_name} is present in region #{target_region}")
-    @property_hash[:ensure] == :present
+  # TODO
+  def destroy
   end
 
-
+  # TODO
+  def flush
+  end
 
 end
