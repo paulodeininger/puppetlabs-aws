@@ -5,17 +5,18 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
   mk_resource_methods
 
   def initialize(value={})
+    Puppet.debug("es initialize")
     super(value)
     @property_flush = {}
   end
 
   def self.instances
     regions.collect do |region|
-      instances []
-      es = es_client(region)
-      es.list_domain_names().each() do |instance|
-        hash = instance_to_hash(region, domain_name)
-        instances << new(hash) if hash[:domain_name]
+      instances = []
+      instance = es_client(region)
+      instance.list_domain_names.domain_names.each do |domain_name|
+        hash = es_to_hash(region, domain_name)
+        instances << new(hash) if has_name?(hash)
       end
       instances
     end.flatten
@@ -29,12 +30,13 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
     end
   end
 
-  def self.instance_to_hash(region, domain_name)
+  def self.es_to_hash(region, name)
     config = {
-      domain_name: domain_name,
+      domain_name: name,
       region: region,
       ensure: :present,
     }
+    config
   end
 
 # TODO: config_with_dedicated_master
@@ -57,16 +59,16 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
 #      },
 
   def exists?
-    Puppet.debug("Checking if Elasticsearch Service Domain #{domain_name} is present in region #{target_region}")
+    Puppet.debug("Checking if Elasticsearch Service Domain #{name} is present in region #{target_region}")
     @property_hash[:ensure] == :present
   end
 
   def create
-    Puppet.info("Creating new Elasticsearch Service Domain #{domain_name} in region #{target_region}")
+    Puppet.info("Creating new Elasticsearch Service Domain #{name} in region #{target_region}")
     es = es_client(target_region)
 
     config = {
-      domain_name: domain_name,
+      domain_name: name,
       elasticsearch_version: resource[:elasticsearch_version],
       elasticsearch_cluster_config: {
         instance_type: resource[:instance_type],
@@ -90,10 +92,10 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
   end
 
   def destroy
-    Puppet.info("Deleting Domain #{domain_name} in region #{resource[:region]}")
+    Puppet.info("Deleting Domain #{name} in region #{resource[:region]}")
     es = es_client(target_region)
     response = es.delete_elasticsearch_domain({
-      domain_name: domain_name,
+      domain_name: name,
     })
 
     @property_hash[:ensure] = :absent
@@ -103,8 +105,23 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
     response.error
   end
 
-  # TODO
   def flush
+    if @property_hash[:ensure] != :absent and not @property_flush.nil?
+      Puppet.debug("Flushing Elasticsearch Service for #{@property_hash[:name]}")
+
+      if @property_flush.keys.size > 0
+        domain_config_update = {
+          domain_name: @property_hash[:name]
+        }
+
+        @property_flush.each {|k,v|
+          domain_config_update[k] = v
+        }
+
+        es_client(@property_hash[:region]).update_elasticsearch_domain_config(domain_config_update)
+      end
+    end
+
   end
 
 end
