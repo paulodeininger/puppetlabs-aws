@@ -45,6 +45,10 @@ rds_tests = [
   'spec/*/sqs_spec.rb'
 ]
 
+es_tests = [
+  'spec/*/es_spec.rb'
+]
+
 full_tests = [
   'spec/*/all_properties_vpc_spec.rb',
   'spec/*/instance_spec.rb',
@@ -64,8 +68,13 @@ RSpec::Core::RakeTask.new(:rds => [:spec_prep]) do |t|
   t.pattern = rds_tests
 end
 
+desc "Run es tests"
+RSpec::Core::RakeTask.new(:es => [:spec_prep]) do |t|
+  t.pattern = es_tests
+end
+
 desc "Run full acceptance tests"
-RSpec::Core::RakeTask.new(:jenkins => [:spec_prep, :rds, :scale]) do |t|
+RSpec::Core::RakeTask.new(:jenkins => [:spec_prep, :rds, :es, :scale]) do |t|
   t.pattern = full_tests
 end
 
