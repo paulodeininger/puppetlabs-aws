@@ -42,8 +42,9 @@ Puppet::Type.newtype(:es) do
   newproperty(:access_policies) do
     desc 'The policy document JSON string'
     validate do |value|
-      fail Puppet::Error, 'Policy documents must be JSON strings' unless value.is_a? String
-      JSON.parse(value)
+      unless value.to_s.empty?
+        JSON.parse(value)
+      end
     end
     munge do |value|
       begin
