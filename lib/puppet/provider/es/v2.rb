@@ -6,7 +6,6 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
   mk_resource_methods
 
   def initialize(value={})
-    Puppet.debug("es initialize")
     super(value)
     @property_flush = {}
   end
@@ -38,6 +37,19 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
   end
 
   def self.es_to_hash(region, instance)
+
+    if instance.vpc_options
+      vpc_id              = instance.vpc_options.vpc_id
+      subnet_ids          = instance.vpc_options.subnet_ids
+      availability_zones  = instance.vpc_options.availability_zones
+      security_group_ids  = instance.vpc_options.security_group_ids
+    else
+      vpc_id              = nil
+      subnet_ids          = nil
+      availability_zones  = nil
+      security_group_ids  = nil
+    end
+
     config = {
       ensure: :present,
       name: instance.domain_name,
@@ -63,10 +75,10 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
         automated_snapshot_start_hour: instance.snapshot_options.automated_snapshot_start_hour,
       },
       vpc_options: {
-        vpc_id: instance.vpc_options.vpc_id,
-        subnet_ids: instance.vpc_options.subnet_ids,
-        availability_zones: instance.vpc_options.availability_zones,
-        security_group_ids: instance.vpc_options.security_group_ids,
+        vpc_id: vpc_id,
+        subnet_ids: subnet_ids,
+        availability_zones: availability_zones,
+        security_group_ids: security_group_ids,
       },
       encryption_at_rest_options: {
         enabled: instance.encryption_at_rest_options.enabled,
@@ -79,7 +91,7 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
   end
 
   def config_with_vpc_options(config)
-    unless resource[:subnet_ids].nil?
+    if !resource[:subnet_ids].nil?
       config[:vpc_options] = {
         subnet_ids: resource[:subnet_ids],
         security_group_ids: resource[:security_group_ids],
@@ -108,14 +120,14 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
         volume_size: resource[:volume_size],
       }
     end
-    unless resource[:iops].nil?
+    if !resource[:iops].nil?
       config[:ebs_options].first[:iops] = resource[:iops]
     end
     config
   end
 
   def config_with_encryption_at_rest_options(config)
-    unless resource[:kms_key_id].nil?
+    if !resource[:kms_key_id].nil?
       config[:encryption_at_rest_options] = {
         enabled: true,
         kms_key_id: resource[:kms_key_id],
@@ -157,12 +169,6 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
 
     resp = es_service_role_if_missing
     Puppet.debug("Using service-linked role arn #{resp}")
-
-    subnet_ids = resource[:subnet_ids]
-    subnet_ids = [subnet_ids] unless subnet_ids.is_a?(Array)
-
-    security_group_ids = resource[:security_group_ids]
-    security_group_ids = [security_group_ids] unless security_group_ids.is_a?(Array)
 
     config = {
       domain_name: name,
