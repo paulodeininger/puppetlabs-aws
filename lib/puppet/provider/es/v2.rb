@@ -18,8 +18,10 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
           instance = es_client(region).describe_elasticsearch_domain({
             domain_name: es_instance.domain_name,
           })
-          hash = es_to_hash(region, instance.domain_status)
-          instances << new(hash) if has_name?(hash)
+          unless instance.domain_status.deleted
+            hash = es_to_hash(region, instance.domain_status)
+            instances << new(hash) if has_name?(hash)
+          end
         end
       end
       instances
@@ -38,7 +40,7 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
 
   def self.es_to_hash(region, instance)
 
-    if instance.vpc_options
+    if !instance.vpc_options.nil?
       vpc_id              = instance.vpc_options.vpc_id
       subnet_ids          = instance.vpc_options.subnet_ids
       availability_zones  = instance.vpc_options.availability_zones
