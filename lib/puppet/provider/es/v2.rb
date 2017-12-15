@@ -2,6 +2,7 @@ require_relative '../../../puppet_x/puppetlabs/aws.rb'
 
 Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
   confine feature: :aws
+  confine feature: :retries
   mk_resource_methods
 
   def initialize(value={})
@@ -13,10 +14,14 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
   def self.instances
     regions.collect do |region|
       instances = []
-      instance = es_client(region)
-      instance.list_domain_names.domain_names.each do |domain_name|
-        hash = es_to_hash(region, domain_name)
-        instances << new(hash) if has_name?(hash)
+      es_client(region).list_domain_names.each do |response|
+        response.domain_names.each do |es_instance|
+          instance = es_client(region).describe_elasticsearch_domain({
+            domain_name: es_instance.domain_name,
+          })
+          hash = es_to_hash(region, instance.domain_status)
+          instances << new(hash) if has_name?(hash)
+        end
       end
       instances
     end.flatten
@@ -30,11 +35,13 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
     end
   end
 
-  def self.es_to_hash(region, name)
+  def self.es_to_hash(region, instance)
+
+    Puppet.info(instance)
     config = {
-      domain_name: name,
-      region: region,
       ensure: :present,
+      domain_name: instance.domain_name,
+      region: region,
     }
     config
   end
@@ -84,8 +91,30 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
     @property_hash[:ensure] == :present
   end
 
+  def es_service_role_if_missing
+    service_role_name = 'AWSServiceRoleForAmazonElasticsearchService'
+
+    begin
+      Puppet.info("Checking if Elasticsearch Service-Linked role #{service_role_name} exists")
+      resp = iam_client.get_role({
+        role_name: service_role_name,
+      })
+    rescue Aws::IAM::Errors::ServiceError => e
+      fail e unless e.message == 'Role not found for AWSServiceRoleForAmazonElasticsearchService'
+
+      Puppet.info("Creating Elasticsearch Service-Linked role #{service_role_name}")
+      resp = iam_client.create_service_linked_role({
+        aws_service_name: 'es.amazonaws.com',
+      })
+    end
+    resp.role.arn
+  end
+
   def create
     Puppet.info("Creating new Elasticsearch Service Domain #{name} in region #{target_region}")
+
+    resp = es_service_role_if_missing
+    Puppet.debug("Using service-linked role arn #{resp}")
 
     subnet_ids = resource[:subnet_ids]
     subnet_ids = [subnet_ids] unless subnet_ids.is_a?(Array)
@@ -123,7 +152,7 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
 
   def destroy
     Puppet.info("Deleting Domain #{name} in region #{resource[:region]}")
-    es = es_client(target_region)
+    es = es_client(resource[:region])
     response = es.delete_elasticsearch_domain({
       domain_name: name,
     })
