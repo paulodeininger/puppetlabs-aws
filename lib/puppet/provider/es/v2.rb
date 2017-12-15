@@ -78,6 +78,16 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
     config
   end
 
+  def config_with_vpc_options(config)
+    unless resource[:subnet_ids].nil?
+      config[:vpc_options] = {
+        subnet_ids: resource[:subnet_ids],
+        security_group_ids: resource[:security_group_ids],
+      }
+    end
+    config
+  end
+
   def config_with_dedicated_master(config)
     if resource[:dedicated_master_enabled] == true
       config[:dedicated_master] = {
@@ -167,12 +177,9 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
       snapshot_options: {
         automated_snapshot_start_hour: resource[:automated_snapshot_start_hour],
       },
-      vpc_options: {
-        subnet_ids: subnet_ids,
-        security_group_ids: security_group_ids,
-      },
       advanced_options: resource[:advanced_options],
     }
+    config = config_with_vpc_options(config)
     config = config_with_dedicated_master(config)
     config = config_with_ebs_options(config)
     config = config_with_encryption_at_rest_options(config)
@@ -188,12 +195,80 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
     response = es.delete_elasticsearch_domain({
       domain_name: name,
     })
-
     @property_hash[:ensure] = :absent
-    if response.error
-      fail("Failed to delete Elasticsearch Domain: #{response.error}") if response.error
-    end
-    response.error
+    response
+  end
+
+  def elasticsearch_version=(value)
+    @property_flush[:elasticsearch_version] = value
+  end
+
+  def instance_type=(value)
+    @property_flush[:instance_type] = value
+  end
+
+  def instance_count=(value)
+    @property_flush[:instance_count] = value
+  end
+
+  def dedicated_master_enabled=(value)
+    @property_flush[:dedicated_master_enabled] = value
+  end
+
+  def zone_awareness_enabled=(value)
+    @property_flush[:zone_awareness_enabled] = value
+  end
+
+  def dedicated_master_type=(value)
+    @property_flush[:dedicated_master_type] = value
+  end
+
+  def dedicated_master_count=(value)
+    @property_flush[:dedicated_master_count] = value
+  end
+
+  def ebs_enabled=(value)
+    @property_flush[:ebs_enabled] = value
+  end
+
+  def volume_type=(value)
+    @property_flush[:volume_type] = value
+  end
+
+  def volume_size=(value)
+    @property_flush[:volume_size] = value
+  end
+
+  def iops=(value)
+    @property_flush[:iops] = value
+  end
+
+  def access_policies=(value)
+    @property_flush[:access_policies] = value
+  end
+
+  def automated_snapshot_start_hour=(value)
+    @property_flush[:automated_snapshot_start_hour] = value
+  end
+
+  def subnet_ids=(value)
+    @property_flush[:subnet_ids] = value
+  end
+
+  def security_group_ids=(value)
+    @property_flush[:security_group_ids] = value
+  end
+
+  def kms_key_id=(value)
+    @property_flush[:kms_key_id] = value
+  end
+
+  def advanced_options=(value)
+    @property_flush[:advanced_options] = value
+  end
+
+  def log_publishing_options=(value)
+    @property_flush[:log_publishing_options] = value
   end
 
   def flush
