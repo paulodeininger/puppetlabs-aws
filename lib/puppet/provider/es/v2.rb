@@ -27,6 +27,8 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
     end.flatten
   end
 
+  read_only(:domain_name)
+
   def self.prefetch(resources)
     instances.each do |prov|
       if resource = resources[prov.name] # rubocop:disable Lint/AssignmentInCondition
@@ -36,12 +38,42 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
   end
 
   def self.es_to_hash(region, instance)
-
-    Puppet.info(instance)
     config = {
       ensure: :present,
-      domain_name: instance.domain_name,
+      name: instance.domain_name,
       region: region,
+      domain_name: instance.domain_name,
+      elasticsearch_version: instance.elasticsearch_version,
+      elasticsearch_cluster_config: {
+        instance_type: instance.elasticsearch_cluster_config.instance_type,
+        instance_count: instance.elasticsearch_cluster_config.instance_count,
+        dedicated_master_enabled: instance.elasticsearch_cluster_config.dedicated_master_enabled,
+        zone_awareness_enabled: instance.elasticsearch_cluster_config.zone_awareness_enabled,
+        dedicated_master_type: instance.elasticsearch_cluster_config.dedicated_master_type,
+        dedicated_master_count: instance.elasticsearch_cluster_config.dedicated_master_count,
+      },
+      ebs_options: {
+        ebs_enabled: instance.ebs_options.ebs_enabled,
+        volume_type: instance.ebs_options.volume_type,
+        volume_size: instance.ebs_options.volume_size,
+        iops: instance.ebs_options.iops,
+      },
+      access_policies: instance.access_policies,
+      snapshot_options: {
+        automated_snapshot_start_hour: instance.snapshot_options.automated_snapshot_start_hour,
+      },
+      vpc_options: {
+        vpc_id: instance.vpc_options.vpc_id,
+        subnet_ids: instance.vpc_options.subnet_ids,
+        availability_zones: instance.vpc_options.availability_zones,
+        security_group_ids: instance.vpc_options.security_group_ids,
+      },
+      encryption_at_rest_options: {
+        enabled: instance.encryption_at_rest_options.enabled,
+        kms_key_id: instance.encryption_at_rest_options.kms_key_id,
+      },
+      advanced_options: instance.advanced_options,
+      log_publishing_options: instance.log_publishing_options,
     }
     config
   end
