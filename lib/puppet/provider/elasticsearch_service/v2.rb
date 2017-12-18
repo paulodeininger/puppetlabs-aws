@@ -1,6 +1,6 @@
 require_relative '../../../puppet_x/puppetlabs/aws.rb'
 
-Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
+Puppet::Type.type(:elasticsearch_service).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
   confine feature: :aws
   confine feature: :retries
   mk_resource_methods
@@ -28,7 +28,7 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
     end.flatten
   end
 
-  read_only(:domain_name)
+  read_only(:domain_name, :elasticsearch_version, :kms_key_id)
 
   def self.prefetch(resources)
     instances.each do |prov|
@@ -58,34 +58,24 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
       region: region,
       domain_name: instance.domain_name,
       elasticsearch_version: instance.elasticsearch_version,
-      elasticsearch_cluster_config: {
-        instance_type: instance.elasticsearch_cluster_config.instance_type,
-        instance_count: instance.elasticsearch_cluster_config.instance_count,
-        dedicated_master_enabled: instance.elasticsearch_cluster_config.dedicated_master_enabled,
-        zone_awareness_enabled: instance.elasticsearch_cluster_config.zone_awareness_enabled,
-        dedicated_master_type: instance.elasticsearch_cluster_config.dedicated_master_type,
-        dedicated_master_count: instance.elasticsearch_cluster_config.dedicated_master_count,
-      },
-      ebs_options: {
-        ebs_enabled: instance.ebs_options.ebs_enabled,
-        volume_type: instance.ebs_options.volume_type,
-        volume_size: instance.ebs_options.volume_size,
-        iops: instance.ebs_options.iops,
-      },
+      instance_type: instance.elasticsearch_cluster_config.instance_type,
+      instance_count: instance.elasticsearch_cluster_config.instance_count,
+      dedicated_master_enabled: instance.elasticsearch_cluster_config.dedicated_master_enabled,
+      zone_awareness_enabled: instance.elasticsearch_cluster_config.zone_awareness_enabled,
+      dedicated_master_type: instance.elasticsearch_cluster_config.dedicated_master_type,
+      dedicated_master_count: instance.elasticsearch_cluster_config.dedicated_master_count,
+      ebs_enabled: instance.ebs_options.ebs_enabled,
+      volume_type: instance.ebs_options.volume_type,
+      volume_size: instance.ebs_options.volume_size,
+      iops: instance.ebs_options.iops,
       access_policies: instance.access_policies,
-      snapshot_options: {
-        automated_snapshot_start_hour: instance.snapshot_options.automated_snapshot_start_hour,
-      },
-      vpc_options: {
-        vpc_id: vpc_id,
-        subnet_ids: subnet_ids,
-        availability_zones: availability_zones,
-        security_group_ids: security_group_ids,
-      },
-      encryption_at_rest_options: {
-        enabled: instance.encryption_at_rest_options.enabled,
-        kms_key_id: instance.encryption_at_rest_options.kms_key_id,
-      },
+      automated_snapshot_start_hour: instance.snapshot_options.automated_snapshot_start_hour,
+      vpc_id: vpc_id,
+      subnet_ids: subnet_ids,
+      availability_zones: availability_zones,
+      security_group_ids: security_group_ids,
+      enabled: instance.encryption_at_rest_options.enabled,
+      kms_key_id: instance.encryption_at_rest_options.kms_key_id,
       advanced_options: instance.advanced_options,
       log_publishing_options: instance.log_publishing_options,
     }
@@ -207,10 +197,6 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
     response
   end
 
-  def elasticsearch_version=(value)
-    @property_flush[:elasticsearch_version] = value
-  end
-
   def instance_type=(value)
     @property_flush[:instance_type] = value
   end
@@ -267,10 +253,6 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
     @property_flush[:security_group_ids] = value
   end
 
-  def kms_key_id=(value)
-    @property_flush[:kms_key_id] = value
-  end
-
   def advanced_options=(value)
     @property_flush[:advanced_options] = value
   end
@@ -284,15 +266,46 @@ Puppet::Type.type(:es).provide(:v2, :parent => PuppetX::Puppetlabs::Aws) do
       Puppet.debug("Flushing Elasticsearch Service for #{@property_hash[:name]}")
 
       if @property_flush.keys.size > 0
-        domain_config_update = {
+        config_update = {
           domain_name: @property_hash[:name]
         }
 
-        @property_flush.each {|k,v|
-          domain_config_update[k] = v
-        }
+        elasticsearch_cluster_config_params = [
+          :instance_type,
+          :instance_count,
+          :dedicated_master_enabled,
+          :zone_awareness_enabled,
+          :dedicated_master_type,
+          :dedicated_master_count
+        ]
+        ebs_options_params = [
+          :ebs_enabled,
+          :volume_type,
+          :volume_size,
+          :iops
+        ]
+        snapshot_options_params = [:automated_snapshot_start_hour]
+        vpc_options_params = [
+          :subnet_ids,
+          :security_group_ids
+        ]
+        non_root_params = elasticsearch_cluster_config_params + ebs_options_params + snapshot_options_params + vpc_options_params
 
-        es_client(@property_hash[:region]).update_elasticsearch_domain_config(domain_config_update)
+        elasticsearch_cluster_config = @property_flush.select {|param| elasticsearch_cluster_config_params.include? param}
+        ebs_options = @property_flush.select {|param| ebs_options_params.include? param}
+        snapshot_options = @property_flush.select {|param| snapshot_options_params.include? param}
+        vpc_options = @property_flush.select {|param| vpc_options_params.include? param}
+        root = @property_flush.select {|param| !non_root_params.include? param }
+
+        
+        config_update[:elasticsearch_cluster_config] = elasticsearch_cluster_config unless elasticsearch_cluster_config.empty?
+        config_update[:ebs_options] = ebs_options unless ebs_options.empty?
+        config_update[:snapshot_options] = snapshot_options unless snapshot_options.empty?
+        config_update[:vpc_options] = vpc_options unless vpc_options.empty?
+        config_update = config_update.merge(root)
+
+        Puppet.debug(config_update)
+        es_client(@property_hash[:region]).update_elasticsearch_domain_config(config_update)
       end
     end
 
