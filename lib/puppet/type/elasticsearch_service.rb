@@ -1,6 +1,6 @@
 require_relative '../../puppet_x/puppetlabs/property/region.rb'
 
-Puppet::Type.newtype(:es) do
+Puppet::Type.newtype(:elasticsearch_service) do
   @doc = 'Type representing an Elasticsearch Service Domain.'
 
   ensurable
